@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 void main() {
   runApp(const DesignYourSpaceApp());
@@ -24,8 +26,36 @@ class DesignYourSpaceApp extends StatelessWidget {
   }
 }
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  File? selectedImage;
+  final ImagePicker picker = ImagePicker();
+
+  Future<void> pickRoomPhoto() async {
+    try {
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+
+      if (image != null && mounted) {
+        setState(() {
+          selectedImage = File(image.path);
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Photo select nahi ho payi.')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -75,21 +105,47 @@ class HomePage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text('Give your room a fresh new look.'),
+                  const Text('Choose a photo of your room.'),
                   const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Photo upload coming soon!'),
-                        ),
-                      );
-                    },
-                    child: const Text('Get Started'),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: pickRoomPhoto,
+                      icon: const Icon(Icons.upload_file),
+                      label: const Text('Upload Room Photo'),
+                    ),
                   ),
                 ],
               ),
             ),
+            if (selectedImage != null) ...[
+              const SizedBox(height: 25),
+              const Text(
+                'Your Room Photo',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.file(
+                  selectedImage!,
+                  width: double.infinity,
+                  height: 250,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Photo uploaded successfully!',
+                style: TextStyle(
+                  color: Colors.green,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
             const SizedBox(height: 28),
             const Text(
               'Explore Ideas',
