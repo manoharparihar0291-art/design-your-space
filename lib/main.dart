@@ -1,3 +1,4 @@
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -21,32 +22,98 @@ class DesignYourSpaceApp extends StatelessWidget {
         ),
         scaffoldBackgroundColor: const Color(0xFFFAF7F2),
       ),
-      home: const HomePage(),
+      home: const DesignHome(),
     );
   }
 }
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+class DesignHome extends StatefulWidget {
+  const DesignHome({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<DesignHome> createState() => _DesignHomeState();
 }
 
-class _HomePageState extends State<HomePage> {
-  File? selectedImage;
+class _DesignHomeState extends State<DesignHome> {
   final ImagePicker picker = ImagePicker();
+  final TextEditingController areaController = TextEditingController();
+  final TextEditingController customStyleController =
+      TextEditingController();
 
-  Future<void> pickRoomPhoto() async {
+  File? selectedImage;
+
+  String designType = 'Interior';
+  String selectedRoom = 'Living Room';
+  String selectedStyle = 'Modern';
+  String areaUnit = 'sq ft';
+
+  final List<String> styles = [
+    'Modern',
+    'Traditional',
+    'Minimalist',
+    'Luxury',
+    'Contemporary',
+    'Scandinavian',
+    'Industrial',
+    'Bohemian',
+    'Indian Heritage',
+    'Rustic',
+    'Japandi',
+    'Art Deco',
+    'Coastal',
+    'Classic',
+    'Custom',
+  ];
+
+  final List<String> interiorRooms = [
+    'Living Room',
+    'Bedroom',
+    'Kitchen',
+    'Bathroom',
+    'Dining Room',
+    'Office',
+    'Kids Room',
+    'Study Room',
+    'Hallway',
+    'Full House',
+    'Shop',
+    'Restaurant',
+  ];
+
+  final List<String> exteriorRooms = [
+    'Front Elevation',
+    'House Exterior',
+    'Garden',
+    'Balcony',
+    'Terrace',
+    'Swimming Pool',
+    'Outdoor Seating',
+    'Boundary Wall',
+    'Full Property',
+  ];
+
+  double get areaInSqFt {
+    final value = double.tryParse(areaController.text) ?? 0;
+    if (areaUnit == 'sq m') return value * 10.7639;
+    if (areaUnit == 'sq yd') return value * 9;
+    return value;
+  }
+
+  int get estimatedCost {
+    final rate = designType == 'Interior' ? 1200 : 900;
+    return (areaInSqFt * rate).round();
+  }
+
+  Future<void> choosePhoto(ImageSource source) async {
     try {
-      final XFile? image = await picker.pickImage(
-        source: ImageSource.gallery,
+      final photo = await picker.pickImage(
+        source: source,
         imageQuality: 85,
       );
 
-      if (image != null && mounted) {
+      if (photo != null) {
         setState(() {
-          selectedImage = File(image.path);
+          selectedImage = File(photo.path);
         });
       }
     } catch (e) {
@@ -57,8 +124,50 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  void showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  Widget sectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 25, bottom: 12),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  Widget optionChip(
+    String value,
+    String selected,
+    Function(String) onSelected,
+  ) {
+    return ChoiceChip(
+      label: Text(value),
+      selected: selected == value,
+      onSelected: (_) => onSelected(value),
+    );
+  }
+
+  @override
+  void dispose() {
+    areaController.dispose();
+    customStyleController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final rooms = designType == 'Interior'
+        ? interiorRooms
+        : exteriorRooms;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -68,129 +177,245 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: const Color(0xFFFAF7F2),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'AI Interiors, Made Personal',
+              'AI Interiors & Exteriors, Made Personal',
               style: TextStyle(
-                fontSize: 28,
+                fontSize: 27,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             const Text(
-              'Transform your room into a space you love.',
-              style: TextStyle(fontSize: 16, color: Colors.black54),
+              'Create a space that feels like you.',
+              style: TextStyle(color: Colors.black54, fontSize: 16),
             ),
-            const SizedBox(height: 25),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(22),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEDE2D5),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.chair_alt, size: 45),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Transform a Room',
-                    style: TextStyle(
-                      fontSize: 23,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text('Choose a photo of your room.'),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: pickRoomPhoto,
-                      icon: const Icon(Icons.upload_file),
-                      label: const Text('Upload Room Photo'),
-                    ),
-                  ),
-                ],
-              ),
+
+            sectionTitle('1. Choose Design Type'),
+            Wrap(
+              spacing: 10,
+              children: [
+                optionChip('Interior', designType, (value) {
+                  setState(() {
+                    designType = value;
+                    selectedRoom = interiorRooms.first;
+                  });
+                }),
+                optionChip('Exterior', designType, (value) {
+                  setState(() {
+                    designType = value;
+                    selectedRoom = exteriorRooms.first;
+                  });
+                }),
+              ],
             ),
-            if (selectedImage != null) ...[
-              const SizedBox(height: 25),
-              const Text(
-                'Your Room Photo',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
+
+            sectionTitle('2. Choose Room / Area'),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: rooms.map((room) {
+                return optionChip(room, selectedRoom, (value) {
+                  setState(() => selectedRoom = value);
+                });
+              }).toList(),
+            ),
+
+            sectionTitle('3. Upload Your Photo'),
+            const Text(
+              'Choose a photo from your gallery or take a new photo.',
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => choosePhoto(ImageSource.gallery),
+                    icon: const Icon(Icons.photo_library),
+                    label: const Text('Gallery'),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => choosePhoto(ImageSource.camera),
+                    icon: const Icon(Icons.camera_alt),
+                    label: const Text('Camera'),
+                  ),
+                ),
+              ],
+            ),
+
+            if (selectedImage != null) ...[
+              const SizedBox(height: 15),
               ClipRRect(
                 borderRadius: BorderRadius.circular(16),
                 child: Image.file(
                   selectedImage!,
                   width: double.infinity,
-                  height: 250,
+                  height: 230,
                   fit: BoxFit.cover,
                 ),
               ),
-              const SizedBox(height: 10),
-              const Text(
-                'Photo uploaded successfully!',
-                style: TextStyle(
-                  color: Colors.green,
-                  fontWeight: FontWeight.bold,
+              TextButton.icon(
+                onPressed: () {
+                  setState(() => selectedImage = null);
+                },
+                icon: const Icon(Icons.delete_outline),
+                label: const Text('Remove Photo'),
+              ),
+            ],
+
+            sectionTitle('4. Choose Your Design Style'),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: styles.map((style) {
+                return optionChip(style, selectedStyle, (value) {
+                  setState(() => selectedStyle = value);
+                });
+              }).toList(),
+            ),
+
+            if (selectedStyle == 'Custom') ...[
+              const SizedBox(height: 14),
+              TextField(
+                controller: customStyleController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Describe your custom style',
+                  hintText:
+                      'Example: Modern Indian design with warm wooden furniture...',
+                  border: OutlineInputBorder(),
                 ),
               ),
             ],
-            const SizedBox(height: 28),
-            const Text(
-              'Explore Ideas',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+
+            sectionTitle('5. Enter Area Measurement'),
+            Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: TextField(
+                    controller: areaController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    onChanged: (_) => setState(() {}),
+                    decoration: const InputDecoration(
+                      labelText: 'Area',
+                      hintText: 'Example: 500',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: areaUnit,
+                    decoration: const InputDecoration(
+                      labelText: 'Unit',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: ['sq ft', 'sq m', 'sq yd'].map((unit) {
+                      return DropdownMenuItem(
+                        value: unit,
+                        child: Text(unit),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => areaUnit = value);
+                      }
+                    },
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 14),
-            const RoomCard(icon: Icons.weekend, title: 'Living Room'),
-            const RoomCard(icon: Icons.bed, title: 'Bedroom'),
-            const RoomCard(icon: Icons.kitchen, title: 'Kitchen'),
-            const RoomCard(icon: Icons.desk, title: 'Workspace'),
+
+            sectionTitle('6. Estimated Renovation Budget'),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEDE2D5),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Approximate estimated cost'),
+                  const SizedBox(height: 8),
+                  Text(
+                    areaInSqFt > 0
+                        ? '₹${estimatedCost.toString()}'
+                        : 'Enter area to calculate',
+                    style: const TextStyle(
+                      fontSize: 27,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Demo estimate only. Actual cost depends on '
+                    'materials, labour, location and design choices.',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 25),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: FilledButton.icon(
+                onPressed: () {
+                  if (selectedImage == null) {
+                    showMessage('Please upload a room photo first.');
+                    return;
+                  }
+
+                  if (areaInSqFt <= 0) {
+                    showMessage('Please enter the area.');
+                    return;
+                  }
+
+                  if (selectedStyle == 'Custom' &&
+                      customStyleController.text.trim().isEmpty) {
+                    showMessage('Please describe your custom style.');
+                    return;
+                  }
+
+                  showMessage(
+                    'Your design details are ready. AI service '
+                    'connection is the next step.',
+                  );
+                },
+                icon: const Icon(Icons.auto_awesome),
+                label: const Text(
+                  'Prepare My Design',
+                  style: TextStyle(fontSize: 17),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 25),
+            const Center(
+              child: Text(
+                'Design Your Space',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black54,
+                ),
+              ),
+            ),
             const SizedBox(height: 20),
-            const Text(
-              'Your Projects',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            const Text('Your saved designs will appear here.'),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class RoomCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-
-  const RoomCard({
-    super.key,
-    required this.icon,
-    required this.title,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        leading: Icon(icon, size: 30),
-        title: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
       ),
     );
   }
