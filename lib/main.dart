@@ -2,8 +2,14 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   runApp(const DesignYourSpaceApp());
 }
 
@@ -35,62 +41,145 @@ class DesignHome extends StatefulWidget {
 }
 
 class _DesignHomeState extends State<DesignHome> {
-  final ImagePicker picker = ImagePicker();
-  final TextEditingController areaController = TextEditingController();
-  final TextEditingController customStyleController =
-      TextEditingController();
+  final auth = FirebaseAuth.instance;
+  final picker = ImagePicker();
+  final areaController = TextEditingController();
+  final customStyleController = TextEditingController();
 
+  User? user;
   File? selectedImage;
+  bool loading = true;
+  bool signingIn = false;
+  int credits = 0;
 
   String designType = 'Interior';
   String selectedRoom = 'Living Room';
   String selectedStyle = 'Modern';
   String areaUnit = 'sq ft';
 
-  final List<String> styles = [
-    'Modern',
-    'Traditional',
-    'Minimalist',
-    'Luxury',
-    'Contemporary',
-    'Scandinavian',
-    'Industrial',
-    'Bohemian',
-    'Indian Heritage',
-    'Rustic',
-    'Japandi',
-    'Art Deco',
-    'Coastal',
-    'Classic',
-    'Custom',
+  final styles = [
+    'Modern', 'Traditional', 'Minimalist', 'Luxury',
+    'Contemporary', 'Scandinavian', 'Industrial',
+    'Bohemian', 'Indian Heritage', 'Rustic', 'Japandi',
+    'Art Deco', 'Coastal', 'Classic', 'Custom',
   ];
 
-  final List<String> interiorRooms = [
-    'Living Room',
-    'Bedroom',
-    'Kitchen',
-    'Bathroom',
-    'Dining Room',
-    'Office',
-    'Kids Room',
-    'Study Room',
-    'Hallway',
-    'Full House',
-    'Shop',
-    'Restaurant',
+  final interiorRooms = [
+    'Living Room', 'Bedroom', 'Kitchen', 'Bathroom',
+    'Dining Room', 'Office', 'Kids Room', 'Study Room',
+    'Hallway', 'Full House', 'Shop', 'Restaurant',
   ];
 
-  final List<String> exteriorRooms = [
-    'Front Elevation',
-    'House Exterior',
-    'Garden',
-    'Balcony',
-    'Terrace',
-    'Swimming Pool',
-    'Outdoor Seating',
-    'Boundary Wall',
-    'Full Property',
+  final exteriorRooms = [
+    'Front Elevation', 'House Exterior', 'Garden',
+    'Balcony', 'Terrace', 'Swimming Pool',
+    'Outdoor Seating', 'Boundary Wall', 'Full Property',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    startGuestMode();
+  }
+
+  Future<void> startGuestMode() async {
+    try {
+      User? current = auth.currentUser;
+      current ??= (await auth.signInAnonymously()).user;
+
+      if (current != null) {
+        await loadCredits(current, 1);
+      }
+    } catch (e) {
+      showMessage('Firebase connection error: $e');
+    }
+
+    if (mounted) setState(() => loading = false);
+  }
+
+  Future<void> loadCredits(User current, int initial) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'credits_${current.uid}';
+
+    if (prefs.getInt(key) == null) {
+      await prefs.setInt(key, initial);
+    }
+
+    if (!mounted) return;
+    setState(() {
+      user = current;
+      credits = prefs.getInt(key) ?? initial;
+    });
+  }
+
+  Future<void> googleLogin() async {
+    setState(() => signingIn = true);
+
+    try {
+      final googleUser = await GoogleSignIn().signIn();
+
+      if (googleUser == null) {
+        setState(() => signingIn = false);
+        return;
+      }
+
+      final googleAuth = await googleUser.authentication;
+
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      UserCredential result;
+
+      if (auth.currentUser?.isAnonymous == true) {
+        try {
+          result = await auth.currentUser!.linkWithCredential(credential);
+        } on FirebaseAuthException catch (e) {
+          if (e.code == 'credential-already-in-use') {
+            result = await auth.signInWithCredential(credential);
+          } else {
+            rethrow;
+          }
+        }
+      } else {
+        result = await auth.signInWithCredential(credential);
+      }
+
+      if (result.user != null) {
+        await loadCredits(result.user!, 4);
+
+        // Google account ko 4 credits ka starting balance.
+        final prefs = await SharedPreferences.getInstance();
+        final key = 'credits_${result.user!.uid}';
+        await prefs.setInt(key, 4);
+
+        if (mounted) {
+          setState(() => credits = 4);
+          showMessage('Google Login successful! 4 credits available.');
+        }
+      }
+    } catch (e) {
+      showMessage('Google Login failed: $e');
+    }
+
+    if (mounted) setState(() => signingIn = false);
+  }
+
+  Future<void> logoutToGuest() async {
+    try {
+      await GoogleSignIn().signOut();
+      await auth.signOut();
+      final result = await auth.signInAnonymously();
+
+      if (result.user != null) {
+        await loadCredits(result.user!, 1);
+        showMessage('Guest Mode started. Welcome!');
+      }
+    } catch (e) {
+      showMessage('Logout error: $e');
+    }
+  }
 
   double get areaInSqFt {
     final value = double.tryParse(areaController.text) ?? 0;
@@ -111,20 +200,16 @@ class _DesignHomeState extends State<DesignHome> {
         imageQuality: 85,
       );
 
-      if (photo != null) {
-        setState(() {
-          selectedImage = File(photo.path);
-        });
+      if (photo != null && mounted) {
+        setState(() => selectedImage = File(photo.path));
       }
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Photo select nahi ho payi.')),
-      );
+      showMessage('Photo select nahi ho payi.');
     }
   }
 
   void showMessage(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
@@ -155,6 +240,34 @@ class _DesignHomeState extends State<DesignHome> {
     );
   }
 
+  void prepareDesign() {
+    if (selectedImage == null) {
+      showMessage('Please upload a photo first.');
+      return;
+    }
+
+    if (credits <= 0) {
+      showMessage('No credits left. Please check your account.');
+      return;
+    }
+
+    if (areaInSqFt <= 0) {
+      showMessage('Please enter the area.');
+      return;
+    }
+
+    if (selectedStyle == 'Custom' &&
+        customStyleController.text.trim().isEmpty) {
+      showMessage('Please describe your custom style.');
+      return;
+    }
+
+    showMessage(
+      'Your photo is ready. Actual AI image generation '
+      'connection is still pending. No credit used.',
+    );
+  }
+
   @override
   void dispose() {
     areaController.dispose();
@@ -164,9 +277,14 @@ class _DesignHomeState extends State<DesignHome> {
 
   @override
   Widget build(BuildContext context) {
-    final rooms = designType == 'Interior'
-        ? interiorRooms
-        : exteriorRooms;
+    if (loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final rooms =
+        designType == 'Interior' ? interiorRooms : exteriorRooms;
 
     return Scaffold(
       appBar: AppBar(
@@ -174,7 +292,14 @@ class _DesignHomeState extends State<DesignHome> {
           'Design Your Space',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: const Color(0xFFFAF7F2),
+        actions: [
+          if (user != null)
+            IconButton(
+              tooltip: 'Logout',
+              onPressed: logoutToGuest,
+              icon: const Icon(Icons.logout),
+            ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(18),
@@ -192,6 +317,48 @@ class _DesignHomeState extends State<DesignHome> {
             const Text(
               'Create a space that feels like you.',
               style: TextStyle(color: Colors.black54, fontSize: 16),
+            ),
+
+            const SizedBox(height: 18),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEDE2D5),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    user?.isAnonymous == true
+                        ? 'Guest Account'
+                        : 'Google Account',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 17,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text('Available credits: $credits'),
+                  const SizedBox(height: 12),
+                  if (user?.isAnonymous == true)
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: signingIn ? null : googleLogin,
+                        icon: const Icon(Icons.login),
+                        label: Text(
+                          signingIn
+                              ? 'Please wait...'
+                              : 'Continue with Google - Get 4 Credits',
+                        ),
+                      ),
+                    )
+                  else
+                    const Text('You are signed in with Google.'),
+                ],
+              ),
             ),
 
             sectionTitle('1. Choose Design Type'),
@@ -225,9 +392,7 @@ class _DesignHomeState extends State<DesignHome> {
             ),
 
             sectionTitle('3. Upload Your Photo'),
-            const Text(
-              'Choose a photo from your gallery or take a new photo.',
-            ),
+            const Text('Choose a photo from Gallery or Camera.'),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -261,9 +426,7 @@ class _DesignHomeState extends State<DesignHome> {
                 ),
               ),
               TextButton.icon(
-                onPressed: () {
-                  setState(() => selectedImage = null);
-                },
+                onPressed: () => setState(() => selectedImage = null),
                 icon: const Icon(Icons.delete_outline),
                 label: const Text('Remove Photo'),
               ),
@@ -287,8 +450,6 @@ class _DesignHomeState extends State<DesignHome> {
                 maxLines: 3,
                 decoration: const InputDecoration(
                   labelText: 'Describe your custom style',
-                  hintText:
-                      'Example: Modern Indian design with warm wooden furniture...',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -301,9 +462,8 @@ class _DesignHomeState extends State<DesignHome> {
                   flex: 2,
                   child: TextField(
                     controller: areaController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                     onChanged: (_) => setState(() {}),
                     decoration: const InputDecoration(
                       labelText: 'Area',
@@ -373,28 +533,7 @@ class _DesignHomeState extends State<DesignHome> {
               width: double.infinity,
               height: 52,
               child: FilledButton.icon(
-                onPressed: () {
-                  if (selectedImage == null) {
-                    showMessage('Please upload a room photo first.');
-                    return;
-                  }
-
-                  if (areaInSqFt <= 0) {
-                    showMessage('Please enter the area.');
-                    return;
-                  }
-
-                  if (selectedStyle == 'Custom' &&
-                      customStyleController.text.trim().isEmpty) {
-                    showMessage('Please describe your custom style.');
-                    return;
-                  }
-
-                  showMessage(
-                    'Your design details are ready. AI service '
-                    'connection is the next step.',
-                  );
-                },
+                onPressed: prepareDesign,
                 icon: const Icon(Icons.auto_awesome),
                 label: const Text(
                   'Prepare My Design',
