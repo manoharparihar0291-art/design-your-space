@@ -1,4 +1,3 @@
-
 name: Build Design Your Space APK
 
 on:
@@ -28,6 +27,34 @@ jobs:
 
       - name: Create Android project files
         run: flutter create --platforms=android --org com.designyourspace .
+
+      - name: Configure Firebase Google Services
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          settings = Path("android/settings.gradle.kts")
+          app = Path("android/app/build.gradle.kts")
+
+          if not settings.exists() or not app.exists():
+              raise SystemExit("Expected Gradle Kotlin files were not found")
+
+          s = settings.read_text()
+          s = s.replace(
+              "plugins {",
+              'plugins {\n    id("com.google.gms.google-services") version "4.4.2" apply false',
+              1
+          )
+          settings.write_text(s)
+
+          a = app.read_text()
+          a = a.replace(
+              "plugins {",
+              'plugins {\n    id("com.google.gms.google-services")',
+              1
+          )
+          app.write_text(a)
+          PY
 
       - name: Install packages
         run: flutter pub get
