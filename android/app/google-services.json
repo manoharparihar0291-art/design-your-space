@@ -1,0 +1,47 @@
+
+  "project_info": {
+    "project_number": "162926466742",
+    "project_id": "design-your-space-212b2",
+    "storage_bucket": "design-your-space-212b2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:162926466742:android:519912248b463b7f0ff817",
+        "android_client_info": {
+          "package_name": "com.designyourspace.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "162926466742-vgdsqe66kopqf6olbn3a2ahr9qqr2apn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.designyourspace.app",
+            "certificate_hash": "65ea87dfbb24d804bfdf59a40adbed2ad6a1f779"
+          }
+        },
+        {
+          "client_id": "162926466742-9cubr6cq9mk567t8m66d2ebfc3fnoso6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDV7kCNLW6CfHIAwLd1s8NT1CTzzHQl_8E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "162926466742-9cubr6cq9mk567t8m66d2ebfc3fnoso6.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
