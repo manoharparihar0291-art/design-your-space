@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "162926466742-8fe5g1kjja1itikb3udv3tmn9ap52nc0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.designyourspace.app",
+            "certificate_hash": "460a24ef85fc77d6e76432781717dbb7a32d457d"
+          }
+        },
+        {
           "client_id": "162926466742-vgdsqe66kopqf6olbn3a2ahr9qqr2apn.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
