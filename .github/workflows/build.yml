@@ -61,10 +61,9 @@ jobs:
           )
           app.write_text(a)
           PY
-
-      - name: Install packages
-        run: flutter pub get
-
+      - name: Show APK Signing SHA-1
+        run: |
+          keytool -list -v -keystore "$HOME/.android/debug.keystore" -alias androiddebugkey -storepass android | grep SHA1
       - name: Build APK
         run: flutter build apk --debug
 
