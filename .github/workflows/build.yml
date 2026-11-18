@@ -25,6 +25,12 @@ jobs:
         with:
           channel: stable
 
+      - name: Restore stable debug keystore
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: design-your-space-debug-keystore-v1
+
       - name: Create Android project
         run: flutter create --platforms=android --org com.designyourspace .
 
@@ -35,9 +41,6 @@ jobs:
 
           settings = Path("android/settings.gradle.kts")
           app = Path("android/app/build.gradle.kts")
-
-          if not settings.exists() or not app.exists():
-              raise SystemExit("Expected Gradle Kotlin files were not found")
 
           s = settings.read_text()
           s = s.replace(
